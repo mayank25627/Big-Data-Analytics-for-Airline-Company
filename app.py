@@ -1,13 +1,20 @@
+from io import StringIO
+from sklearn.feature_extraction.text import TfidfVectorizer
+import base64
+import io
 from flask import Flask, render_template, request, redirect
 import pandas as pd
 import numpy as np
 import pickle
+
 import nltk
 from nltk.corpus import stopwords
 from nltk.tokenize import word_tokenize
 import string
 import joblib
-from sklearn.feature_extraction.text import TfidfVectorizer
+import matplotlib.pyplot as plt
+import matplotlib
+matplotlib.use('Agg')
 
 # All Vectorizers Model for Transform the new text according to model vectorizer
 vectorizerEnternment = joblib.load(
@@ -284,45 +291,224 @@ def analyze():
         Enterntenment_neutral = confidence_entertainment[1] * 100
         Enterntenment_negative = confidence_entertainment[0] * 100
 
+        # Create bar chart for Enternment Services
+        labelsEntertenment = ['Positive Feedback',
+                              'Neutral Feedback', 'Negative Feedback']
+        valuesEnternment = [Enterntenment_positive,
+                            Enterntenment_neutral, Enterntenment_negative]
+        plt.bar(labelsEntertenment, valuesEnternment)
+        # Annotate each bar with its percentage value
+        for i, value in enumerate(valuesEnternment):
+            plt.text(i, value + 2, f"{value:.1f}%", ha='center')
+        plt.ylim(0, 110)
+        plt.title('Sentiment Analysis - Entertainment Services')
+        plt.xlabel('Sentiments')
+        plt.ylabel('Percentage')
+
+        # Save the bar chart as a BytesIO object
+        img = io.BytesIO()
+        plt.savefig(img, format='png')
+        img.seek(0)
+
+        # Encode the image as base64 string
+        plot_url_Entertenment = base64.b64encode(img.getvalue()).decode()
+
+        # Close the plot to release memory
+        plt.close()
+
         # Food Catering services cofidence score
         FoodCatering_positive = confidence_food_catering[2] * 100
         FoodCatering_neutral = confidence_food_catering[1] * 100
         FoodCatering_negative = confidence_food_catering[0] * 100
+
+        # Create bar chart for Food Catering Services
+        labelsFoodCatering = ['Positive Feedback',
+                              'Neutral Feedback', 'Negative Feedback']
+        valuesFoodCatering = [FoodCatering_positive,
+                              FoodCatering_neutral, FoodCatering_negative]
+        plt.bar(labelsFoodCatering, valuesFoodCatering)
+        # Annotate each bar with its percentage value
+        for i, value in enumerate(valuesFoodCatering):
+            plt.text(i, value + 2, f"{value:.1f}%", ha='center')
+        plt.ylim(0, 110)
+        plt.title('Sentiment Analysis - Food Catering Services')
+        plt.xlabel('Sentiments')
+        plt.ylabel('Percentage')
+
+        # Save the bar chart as a BytesIO object
+        img = io.BytesIO()
+        plt.savefig(img, format='png')
+        img.seek(0)
+
+        # Encode the image as base64 string
+        plot_url_FoodCatering = base64.b64encode(img.getvalue()).decode()
+
+        # Close the plot to release memory
+        plt.close()
 
         # Ground services cofidence score
         GroundService_positive = confidence_ground_services[2] * 100
         GroundService_neutral = confidence_ground_services[1] * 100
         GroundService_negative = confidence_ground_services[0] * 100
 
+        # Create bar chart for Ground Services
+        labelsGroundServices = ['Positive Feedback',
+                                'Neutral Feedback', 'Negative Feedback']
+        valuesGroundServices = [GroundService_positive,
+                                GroundService_neutral, GroundService_negative]
+        plt.bar(labelsGroundServices, valuesGroundServices)
+        # Annotate each bar with its percentage value
+        for i, value in enumerate(valuesGroundServices):
+            plt.text(i, value + 2, f"{value:.1f}%", ha='center')
+        plt.ylim(0, 110)
+        plt.title('Sentiment Analysis - Ground Services')
+        plt.xlabel('Sentiments')
+        plt.ylabel('Percentage')
+
+        # Save the bar chart as a BytesIO object
+        img = io.BytesIO()
+        plt.savefig(img, format='png')
+        img.seek(0)
+
+        # Encode the image as base64 string
+        plot_url_GroundServices = base64.b64encode(img.getvalue()).decode()
+
+        # Close the plot to release memory
+        plt.close()
+
         # Seat Comfart services cofidence score
         SeatComfort_positive = confidence_seat_comfort[2] * 100
         SeatComfort_neutral = confidence_seat_comfort[1] * 100
         SeatComfort_negative = confidence_seat_comfort[0] * 100
+
+        # Create bar chart for SeatComfart Services
+        labelsSeatComfartServices = ['Positive Feedback',
+                                     'Neutral Feedback', 'Negative Feedback']
+        valuesSeatComfartServices = [SeatComfort_positive,
+                                     SeatComfort_neutral, SeatComfort_negative]
+        plt.bar(labelsSeatComfartServices, valuesSeatComfartServices)
+        # Annotate each bar with its percentage value
+        for i, value in enumerate(valuesSeatComfartServices):
+            plt.text(i, value + 2, f"{value:.1f}%", ha='center')
+        plt.ylim(0, 110)
+        plt.title('Sentiment Analysis - Seat Comfart Services')
+        plt.xlabel('Sentiments')
+        plt.ylabel('Percentage')
+
+        # Save the bar chart as a BytesIO object
+        img = io.BytesIO()
+        plt.savefig(img, format='png')
+        img.seek(0)
+
+        # Encode the image as base64 string
+        plot_url_SeatComfartServices = base64.b64encode(
+            img.getvalue()).decode()
+
+        # Close the plot to release memory
+        plt.close()
 
         # InFlight services cofidence score
         Inflight_positive = confidence_inflight_services[2] * 100
         Inflight_neutral = confidence_inflight_services[1] * 100
         Inflight_negative = confidence_inflight_services[0] * 100
 
+        # Create bar chart for InFlight Services
+        labelsInFlightServices = ['Positive Feedback',
+                                  'Neutral Feedback', 'Negative Feedback']
+        valuesInFlightServices = [Inflight_positive,
+                                  Inflight_neutral, Inflight_negative]
+        plt.bar(labelsInFlightServices, valuesInFlightServices)
+        # Annotate each bar with its percentage value
+        for i, value in enumerate(valuesInFlightServices):
+            plt.text(i, value + 2, f"{value:.1f}%", ha='center')
+        plt.ylim(0, 110)
+        plt.title('Sentiment Analysis - In Flight Services')
+        plt.xlabel('Sentiments')
+        plt.ylabel('Percentage')
+
+        # Save the bar chart as a BytesIO object
+        img = io.BytesIO()
+        plt.savefig(img, format='png')
+        img.seek(0)
+
+        # Encode the image as base64 string
+        plot_url_InFlight_Services = base64.b64encode(
+            img.getvalue()).decode()
+
+        # Close the plot to release memory
+        plt.close()
+
         # OverAll services cofidence score
         OverAll_positive = confidence_overall_services[2] * 100
         OverAll_neutral = confidence_overall_services[1] * 100
         OverAll_negative = confidence_overall_services[0] * 100
 
-        # Recommended confidence scores
+        # Create bar chart for OverAll Services
+        labelsOverAllServices = ['Positive Feedback',
+                                 'Neutral Feedback', 'Negative Feedback']
+        valuesOverAllServices = [OverAll_positive,
+                                 OverAll_neutral, OverAll_negative]
+        plt.bar(labelsOverAllServices, valuesOverAllServices)
+        # Annotate each bar with its percentage value
+        for i, value in enumerate(valuesOverAllServices):
+            plt.text(i, value + 2, f"{value:.1f}%", ha='center')
+        plt.ylim(0, 110)
+        plt.title('Sentiment Analysis - Over All Services')
+        plt.xlabel('Sentiments')
+        plt.ylabel('Percentage')
+
+        # Save the bar chart as a BytesIO object
+        img = io.BytesIO()
+        plt.savefig(img, format='png')
+        img.seek(0)
+
+        # Encode the image as base64 string
+        plot_url_OverAll_Services = base64.b64encode(
+            img.getvalue()).decode()
+
+        # Close the plot to release memory
+        plt.close()
+
+        # Plot graph for Recommendations
         recommendedYes = confidence_recommended_services[1] * 100
         recommendedNo = confidence_recommended_services[0] * 100
 
-        return render_template('index.html',
-                               prediction_entertainment=f"Positive = {Enterntenment_positive:.2f}% confidence\n Neutral = {Enterntenment_neutral:.2f}% confidence\n Negative = {Enterntenment_negative:.2f}% confidence",
-                               prediction_food_catering=f"Positive = {FoodCatering_positive:.2f}% confidence\n Neutral = {FoodCatering_neutral:.2f}% confidence\n Negative = {FoodCatering_negative:.2f}% confidence",
-                               prediction_ground_services=f"Positive = {GroundService_positive:.2f}% confidence\n Neutral = {GroundService_neutral:.2f}% confidence\n Negative = {GroundService_negative:.2f}% confidence",
-                               prediction_seat_comfort=f"Positive = {SeatComfort_positive:.2f}% confidence\n Neutral = {SeatComfort_neutral:.2f}% confidence\n Negative = {SeatComfort_negative:.2f}% confidence",
-                               prediction_inflight_services=f"Positive = {Inflight_positive:.2f}% confidence\n Neutral = {Inflight_neutral:.2f}% confidence\n Negative = {Inflight_negative:.2f}% confidence",
-                               prediction_overall_services=f"Positive = {OverAll_positive:.2f}% confidence\n Neutral = {OverAll_neutral:.2f}% confidence\n Negative = {OverAll_negative:.2f}% confidence",
-                               prediction_recommended_services=f"Recommended = {recommendedYes:.2f}% confidence\n Not Recommended = {recommendedNo:.2f}% confidence")
+        labelsRecommendation = ['Recommended', 'Not Recommended']
+        valuesRecommendation = [recommendedYes, recommendedNo]
+
+        plt.figure(figsize=(8, 6))
+        plt.pie(valuesRecommendation, labels=labelsRecommendation,
+                autopct='%1.1f%%', startangle=140)
+        plt.title('Recommended Services')
+        plt.axis('equal')
+
+        # Convert plot to PNG image
+        image_stream = io.BytesIO()
+        plt.savefig(image_stream, format='png')
+        image_stream.seek(0)
+        plt.close()
+
+        # Encode PNG image to base64 string
+        plot_url_recommended_services = base64.b64encode(
+            image_stream.getvalue()).decode('utf-8')
+
+        return render_template('index.html', plot_entertainment=plot_url_Entertenment,
+                               plot_food_catering=plot_url_FoodCatering,
+                               plot_Ground=plot_url_GroundServices,
+                               plot_SeatComfart=plot_url_SeatComfartServices,
+                               plot_inFlight=plot_url_InFlight_Services,
+                               plot_OverAll=plot_url_OverAll_Services,
+                               plot_recommended=plot_url_recommended_services
+                               #    prediction_entertainment=f"Positive = {Enterntenment_positive:.2f}% confidence\n Neutral = {Enterntenment_neutral:.2f}% confidence\n Negative = {Enterntenment_negative:.2f}% confidence",
+                               #    prediction_food_catering=f"Positive = {FoodCatering_positive:.2f}% confidence\n Neutral = {FoodCatering_neutral:.2f}% confidence\n Negative = {FoodCatering_negative:.2f}% confidence",
+                               #    prediction_ground_services=f"Positive = {GroundService_positive:.2f}% confidence\n Neutral = {GroundService_neutral:.2f}% confidence\n Negative = {GroundService_negative:.2f}% confidence",
+                               #    prediction_seat_comfort=f"Positive = {SeatComfort_positive:.2f}% confidence\n Neutral = {SeatComfort_neutral:.2f}% confidence\n Negative = {SeatComfort_negative:.2f}% confidence",
+                               #    prediction_inflight_services=f"Positive = {Inflight_positive:.2f}% confidence\n Neutral = {Inflight_neutral:.2f}% confidence\n Negative = {Inflight_negative:.2f}% confidence",
+                               #    prediction_overall_services=f"Positive = {OverAll_positive:.2f}% confidence\n Neutral = {OverAll_neutral:.2f}% confidence\n Negative = {OverAll_negative:.2f}% confidence",
+                               #    prediction_recommended_services=f"Recommended = {recommendedYes:.2f}% confidence\n Not Recommended = {recommendedNo:.2f}% confidence"
+                               )
     return redirect('/')
 
 
 if __name__ == '__main__':
-    app.run(debug=True)
+    app.run()

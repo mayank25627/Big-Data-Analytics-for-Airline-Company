@@ -3,43 +3,101 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Text Analyzer</title>
+    <title>Big Data Analytics</title>
+    <link rel="stylesheet" href="style.css">
+    <style>
+        #inpBox {
+            width: 80%; /* Set width to 100% */
+            height: 200px; /* Set normal height */
+            border: 2px solid seagreen;
+            align-items: center;
+            
+        }
+
+        #analyzeButton {
+            height: 50px;
+            width: 200px;
+            border: 2px solid seagreen;
+            border-radius: 50px;
+            position: absolute;
+            top: 310px;
+            left: 500px;
+            margin-bottom: 100px;
+            align-items: center;
+        }
+
+        #prediction_result{
+            display: flex;
+            flex-direction: row;
+            flex-wrap: wrap;
+            margin-top: 50px;
+        }
+        h1 {
+            text-align: center;
+        }
+
+    </style>
 </head>
 <body>
-    <h1>Write Your Text</h1>
-    <form action="/analyze" method="post">
-        <input type="text" name="text_input" placeholder="Enter your text">
-        <button type="submit">Analyze</button>
+   <h1>Big Data Analytics</h1> 
+      <form id="analysisForm" action="/analyze" method="post">
+        <textarea id="inpBox" name="text_input" placeholder="Enter your text"></textarea>
+        <button id="analyzeButton" type="submit">Analyze Text</button>
+        <button id="analyzeButton" type="submit">Analyze Text</button>
     </form>
+
+
     <div id="prediction_result">
-        {% if prediction_entertainment %}
+        {% if plot_entertainment %}
+            <img src="data:image/png;base64,{{ plot_entertainment }}" alt="Entertainment Services">
+        {% endif %}
+        <!-- {% if prediction_entertainment %}
             <h2>Entertainment Services</h2>
             <p>{{ prediction_entertainment }}</p>
+        {% endif %} -->
+        {% if plot_food_catering %}
+            <img src="data:image/png;base64,{{ plot_food_catering }}" alt="Food Catering Services">
         {% endif %}
-        {% if prediction_food_catering %}
+        <!-- {% if prediction_food_catering %}
             <h2>Food Catering Services</h2>
             <p>{{ prediction_food_catering }}</p>
+        {% endif %} -->
+        {% if plot_Ground %}
+            <img src="data:image/png;base64,{{ plot_Ground }}" alt="Ground Services">
         {% endif %}
-        {% if prediction_ground_services %}
+        <!-- {% if prediction_ground_services %}
             <h2>Ground Services</h2>
             <p>{{ prediction_ground_services }}</p>
+        {% endif %} -->
+        {% if plot_SeatComfart %}
+            <img src="data:image/png;base64,{{ plot_SeatComfart }}" alt="Seat Comfort Services">
         {% endif %}
-        {% if prediction_seat_comfort %}
+        <!-- {% if prediction_seat_comfort %}
             <h2>Seat Comfort Services</h2>
             <p>{{ prediction_seat_comfort }}</p>
+        {% endif %} -->
+        {% if plot_inFlight %}
+            <img src="data:image/png;base64,{{ plot_inFlight }}" alt="InFlight Services">
         {% endif %}
-        {% if prediction_inflight_services %}
+        <!-- {% if prediction_inflight_services %}
             <h2>InFlight Services</h2>
             <p>{{ prediction_inflight_services }}</p>
+        {% endif %} -->
+        {% if plot_OverAll %}
+            <img src="data:image/png;base64,{{ plot_OverAll }}" alt="Over All Services">
         {% endif %}
-        {% if prediction_overall_services %}
+        <!-- {% if prediction_overall_services %}
             <h2>Overall Services</h2>
             <p>{{ prediction_overall_services }}</p>
+        {% endif %} -->
+        {% if plot_recommended %}
+            <img src="data:image/png;base64,{{ plot_recommended }}" alt="Recommended">
         {% endif %}
-        {% if prediction_recommended_services %}
+        <!-- {% if prediction_recommended_services %}
             <h2>Recommended By Users</h2>
             <p>{{ prediction_recommended_services }}</p>
-        {% endif %}
+        {% endif %} -->
     </div>
+        
 </body>
 </html>
