@@ -7,7 +7,23 @@
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
-    <h1>Write Your Text</h1>
+
+    {% if sd %}
+    <h2>Date</h2>
+    <p>{{ sd }}</p>
+  {% endif %}
+  
+  {% if ed %}
+    <h2>Date</h2>
+    <p>{{ ed }}</p>
+  {% endif %}
+  
+  {% if rd %}
+    <h2>Csv data</h2>
+    <p>{{ rd }}</p>
+  {% endif %}
+  
+    <!-- <h1>Write Your Text</h1>
     <form action="/analyze" method="post">
         <input id="inputBox" type="text" name="text_input" placeholder="Enter your text">
         <button type="submit">Analyze</button>
@@ -41,6 +57,6 @@
             <h2>Recommended By Users</h2>
             <p>{{ prediction_recommended_services }}</p>
         {% endif %}
-    </div>
+    </div> -->
 </body>
 </html>

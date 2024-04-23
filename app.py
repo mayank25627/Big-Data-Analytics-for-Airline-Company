@@ -266,25 +266,43 @@ def index():
     return render_template("index.html")
 
 
-@app.route('/analyze', methods=['POST'])
-def analyze():
+@app.route('/process', methods=['POST'])
+def process():
+    start_date = request.form['start_date']
+    end_date = request.form['end_date']
+    csv_file = request.files['csv_file']
+
+    # Read CSV file into pandas DataFrame
+    csv_data = csv_file.read().decode('utf-8')
+    df = pd.read_csv(StringIO(csv_data))
+
+    # # Convert 'date' column to datetime
+    df['Date'] = pd.to_datetime(df['Date'])
+
+    # # Filter DataFrame based on selected date range
+    filtered_df = df[(df['Date'] >= start_date) & (df['Date'] <= end_date)]
+
+    # # Extract 'review' column
+    reviewss = filtered_df['Review'].tolist()
+
+    reviews = '\n'.join(reviewss)
+    # return reviews
     if request.method == 'POST':
-        text_input = request.form['text_input']
         # Perform predictions for all services
         prediction_entertainment, confidence_entertainment = generate_prediction_Entertenment_Services(
-            text_input, loadModel_EnternamentService, vectorizerEnternment)
+            reviews, loadModel_EnternamentService, vectorizerEnternment)
         prediction_food_catering, confidence_food_catering = generate_prediction_Food_Catering_Services(
-            text_input, loadModel_FoodCatering, vectorizerFoodCatering)
+            reviews, loadModel_FoodCatering, vectorizerFoodCatering)
         prediction_ground_services, confidence_ground_services = generate_prediction_Ground_Services(
-            text_input, loadModel_GroundService, vectorizerGroundService)
+            reviews, loadModel_GroundService, vectorizerGroundService)
         prediction_seat_comfort, confidence_seat_comfort = generate_prediction_SeatComfart_Services(
-            text_input, loadModel_SeatComfort, vectorizerSeatComfort)
+            reviews, loadModel_SeatComfort, vectorizerSeatComfort)
         prediction_inflight_services, confidence_inflight_services = generate_prediction_InFlight_Services(
-            text_input, loadModel_InFlight, vectorizerInFlight)
+            reviews, loadModel_InFlight, vectorizerInFlight)
         prediction_overall_services, confidence_overall_services = generate_prediction_OverAll_Services(
-            text_input, loadModel_OverAll, vectorizerOverAll)
+            reviews, loadModel_OverAll, vectorizerOverAll)
         prediction_recommended_services, confidence_recommended_services = generate_prediction_Recommendation_flight(
-            text_input, loadModel_RecommendedService, vectorizerRecommended)
+            reviews, loadModel_RecommendedService, vectorizerRecommended)
 
         # Entertement services cofidence score
         Enterntenment_positive = confidence_entertainment[2] * 100
@@ -492,7 +510,7 @@ def analyze():
         plot_url_recommended_services = base64.b64encode(
             image_stream.getvalue()).decode('utf-8')
 
-        return render_template('index.html', plot_entertainment=plot_url_Entertenment,
+        return render_template('result.html', plot_entertainment=plot_url_Entertenment,
                                plot_food_catering=plot_url_FoodCatering,
                                plot_Ground=plot_url_GroundServices,
                                plot_SeatComfart=plot_url_SeatComfartServices,
