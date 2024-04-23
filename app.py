@@ -287,6 +287,7 @@ def process():
 
     reviews = '\n'.join(reviewss)
     # return reviews
+    
     if request.method == 'POST':
         # Perform predictions for all services
         prediction_entertainment, confidence_entertainment = generate_prediction_Entertenment_Services(
