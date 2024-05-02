@@ -4,9 +4,8 @@ import base64
 import io
 from flask import Flask, render_template, request, redirect
 import pandas as pd
-import numpy as np
 import pickle
-
+import json
 import nltk
 from nltk.corpus import stopwords
 from nltk.tokenize import word_tokenize
@@ -14,6 +13,10 @@ import string
 import joblib
 import matplotlib.pyplot as plt
 import matplotlib
+import csv
+import requests
+from bs4 import BeautifulSoup
+from dateutil import parser
 matplotlib.use('Agg')
 
 # All Vectorizers Model for Transform the new text according to model vectorizer
@@ -27,12 +30,10 @@ vectorizerSeatComfort = joblib.load(
     'D:\Big Data Analytics of Airline Company\Final model with transformation\Comfort_seat_service\Comfart_seat_service_vectrorizer.pkl')
 vectorizerInFlight = joblib.load(
     'D:\Big Data Analytics of Airline Company\Final model with transformation\In_Flight_services\In_Flight_service_vectrorizer.pkl')
-vectorizerOverAll = joblib.load(
-    'D:\Big Data Analytics of Airline Company\Final model with transformation\OverAll_Services\OverAll_service_vectrorizer.pkl')
 vectorizerRecommended = joblib.load(
     'D:\Big Data Analytics of Airline Company\Final model with transformation\Recommendation_flight\Recommendation_service_vectrorizer.pkl')
 
-app = Flask(__name__)
+app = Flask(__name__, static_url_path='/static')
 
 # Load sentimental analysis model and vectorizer
 nltk.download('punkt')
@@ -50,10 +51,11 @@ loadModel_SeatComfort = pickle.load(open(
     r'D:\Big Data Analytics of Airline Company\Final model with transformation\Comfort_seat_service\trained_seat_comfort_services.sav', 'rb'))
 loadModel_InFlight = pickle.load(open(
     r'D:\Big Data Analytics of Airline Company\Final model with transformation\In_Flight_services\trained_InFlight_services.sav', 'rb'))
-loadModel_OverAll = pickle.load(open(
-    r'D:\Big Data Analytics of Airline Company\Final model with transformation\OverAll_Services\trained_OverAll_services.sav', 'rb'))
 loadModel_RecommendedService = pickle.load(open(
     r'D:\Big Data Analytics of Airline Company\Final model with transformation\Recommendation_flight\trained_Recommended_services.sav', 'rb'))
+
+
+# Load Keyword Json File
 
 
 # Preprocess Text Function
@@ -67,203 +69,278 @@ def preprocess_text(text):
     preprocessed_text = ' '.join(tokens)
     return preprocessed_text
 
+# Function to filter text based on keywords
+
+
+def filter_text_by_keywords(text_list, keywords):
+    text_list = str(text_list)
+    filtered_text = []
+    for text in text_list:
+        if any(keyword in text for keyword in keywords):
+            filtered_text.append(text)
+    return filtered_text
+
+
+# web scrappring
+
+
+def convert_date(date_str):
+    # Parse the date string
+    date_obj = parser.parse(date_str, dayfirst=True)
+    # Format the date as YYYY-MM-DD
+    formatted_date = date_obj.strftime("%Y-%m-%d")
+    return formatted_date
+
+# Function to scrape reviews from a given URL
+
+
+def scrape_reviews(url):
+    reviews_data = []
+    r = requests.get(url)
+    soup = BeautifulSoup(r.text, "html.parser")
+    review_blocks = soup.find_all(
+        "h3", class_="text_sub_header userStatusWrapper")
+    for review_block in review_blocks:
+        # Extract date
+        date = review_block.find(
+            "time", itemprop="datePublished").get_text(strip=True)
+        # Convert date format
+        formatted_date = convert_date(date)
+        # Extract and print feedback/comment
+        text = review_block.find_next(
+            "div", class_="text_content").get_text(strip=True)
+        text = text.replace("✅Trip Verified|", "").replace(
+            "Not Verified", "").replace("|", "")
+        reviews_data.append({"Date": formatted_date, "Review": text})
+    return reviews_data
+
+# Function to scrape reviews from multiple pages
+
+
+def scrape_multiple_pages(base_url, max_pages):
+    all_reviews = []
+    # Convert max_pages to integer
+    max_pages = int(max_pages)
+    for page in range(1, max_pages + 1):
+        page_url = base_url + "page/{}/".format(page)
+        reviews_on_page = scrape_reviews(page_url)
+        all_reviews.extend(reviews_on_page)
+    return all_reviews
+
 
 # Generate Prediction for Enternmenet Services
 def generate_prediction_Entertenment_Services(text, loadModel_EnternamentService, vectorizerEnternment):
 
-    # Text Preprocessing
-    preprocessed_text = preprocess_text(text)
-    X_pred_transform = vectorizerEnternment.transform([preprocessed_text])
-    # Load Model
-    prediction = loadModel_EnternamentService.predict(X_pred_transform)
-    confidence = loadModel_EnternamentService.predict_proba(X_pred_transform)[
-        0]
-    return prediction, confidence
+    total_confidence = [0, 0, 0]
+    num_texts = len(text)
+
+    for text_item in text:
+        # Convert text_item to string to handle float values
+        text_item = str(text_item)
+
+        # Text Preprocessing
+        preprocessed_text = preprocess_text(text_item)
+        X_pred_transform = vectorizerEnternment.transform(
+            [preprocessed_text])
+
+        # Load Model
+        confidence = loadModel_EnternamentService.predict_proba(X_pred_transform)[
+            0]
+
+        # Accumulate confidence scores
+        total_confidence[0] += confidence[0]  # Negative
+        total_confidence[1] += confidence[1]  # Neutral
+        total_confidence[2] += confidence[2]  # Positive
+
+    avg_confidence = [score / num_texts for score in total_confidence]
+
+    return avg_confidence
 
 
 # Generate Prediction for FoodCatering Services
 def generate_prediction_Food_Catering_Services(text, loadModel_FoodCatering, vectorizerFoodCatering):
+    # Load keywords from JSON file
+    # with open('D:\Big Data Analytics of Airline Company\Keyword_wise_Validation_Data\Food_Keywords.json') as f:
+    #     keywords = json.load(f)
 
-    # Text Preprocessing
-    preprocessed_text = preprocess_text(text)
-    X_pred_transform = vectorizerFoodCatering.transform([preprocessed_text])
-    # Load Model
-    prediction = loadModel_FoodCatering.predict(X_pred_transform)
-    confidence = loadModel_FoodCatering.predict_proba(X_pred_transform)[
-        0]
-    return prediction, confidence
+    # # text = str(text)
+    # filtered_text = filter_text_by_keywords(text, keywords)
 
+    # if len(filtered_text) == 0:
+    #     # Return default confidence scores if no text is filtered
+    #     return [0, 0, 0]
+
+    # Initialize total confidence scores for negative, neutral, and positive
+    total_confidence = [0, 0, 0]
+    num_texts = len(text)
+
+    for text_item in text:
+        # Convert text_item to string to handle float values
+        text_item = str(text_item)
+
+        # Text Preprocessing
+        preprocessed_text = preprocess_text(text_item)
+        X_pred_transform = vectorizerFoodCatering.transform(
+            [preprocessed_text])
+
+        # Load Model
+        confidence = loadModel_FoodCatering.predict_proba(X_pred_transform)[0]
+
+        # Accumulate confidence scores
+        total_confidence[0] += confidence[0]  # Negative
+        total_confidence[1] += confidence[1]  # Neutral
+        total_confidence[2] += confidence[2]  # Positive
+
+    avg_confidence = [score / num_texts for score in total_confidence]
+
+    return avg_confidence
 
 # Generate Prediction for Ground Services
+
+
 def generate_prediction_Ground_Services(text, loadModel_GroundService, vectorizerGroundService):
+    total_confidence = [0, 0, 0]
+    num_texts = len(text)
 
-    # Text Preprocessing
-    preprocessed_text = preprocess_text(text)
-    X_pred_transform = vectorizerGroundService.transform([preprocessed_text])
-    # Load Model
-    prediction = loadModel_GroundService.predict(X_pred_transform)
-    confidence = loadModel_GroundService.predict_proba(X_pred_transform)[
-        0]
-    return prediction, confidence
+    for text_item in text:
+        # Convert text_item to string to handle float values
+        text_item = str(text_item)
 
+        # Text Preprocessing
+        preprocessed_text = preprocess_text(text_item)
+        X_pred_transform = vectorizerGroundService.transform(
+            [preprocessed_text])
+
+        # Load Model
+        confidence = loadModel_GroundService.predict_proba(X_pred_transform)[
+            0]
+
+        # Accumulate confidence scores
+        total_confidence[0] += confidence[0]  # Negative
+        total_confidence[1] += confidence[1]  # Neutral
+        total_confidence[2] += confidence[2]  # Positive
+
+    avg_confidence = [score / num_texts for score in total_confidence]
+
+    return avg_confidence
 
 # Generate Prediction for Seat Comfart Services
+
+
 def generate_prediction_SeatComfart_Services(text, loadModel_SeatComfort, vectorizerSeatComfort):
+    total_confidence = [0, 0, 0]
+    num_texts = len(text)
 
-    # Text Preprocessing
-    preprocessed_text = preprocess_text(text)
-    X_pred_transform = vectorizerSeatComfort.transform([preprocessed_text])
-    # Load Model
-    prediction = loadModel_SeatComfort.predict(X_pred_transform)
-    confidence = loadModel_SeatComfort.predict_proba(X_pred_transform)[
-        0]
-    return prediction, confidence
+    for text_item in text:
+        # Convert text_item to string to handle float values
+        text_item = str(text_item)
 
+        # Text Preprocessing
+        preprocessed_text = preprocess_text(text_item)
+        X_pred_transform = vectorizerSeatComfort.transform(
+            [preprocessed_text])
+
+        # Load Model
+        confidence = loadModel_SeatComfort.predict_proba(X_pred_transform)[
+            0]
+
+        # Accumulate confidence scores
+        total_confidence[0] += confidence[0]  # Negative
+        total_confidence[1] += confidence[1]  # Neutral
+        total_confidence[2] += confidence[2]  # Positive
+
+    avg_confidence = [score / num_texts for score in total_confidence]
+
+    return avg_confidence
 
 # Generate Prediction for InFlight Services
+
+
 def generate_prediction_InFlight_Services(text, loadModel_InFlight, vectorizerInFlight):
+    total_confidence = [0, 0, 0]
+    num_texts = len(text)
 
-    # Text Preprocessing
-    preprocessed_text = preprocess_text(text)
-    X_pred_transform = vectorizerInFlight.transform([preprocessed_text])
-    # Load Model
-    prediction = loadModel_InFlight.predict(X_pred_transform)
-    confidence = loadModel_InFlight.predict_proba(X_pred_transform)[
-        0]
-    return prediction, confidence
+    for text_item in text:
+        # Convert text_item to string to handle float values
+        text_item = str(text_item)
 
+        # Text Preprocessing
+        preprocessed_text = preprocess_text(text_item)
+        X_pred_transform = vectorizerInFlight.transform(
+            [preprocessed_text])
 
-# Generate Prediction for OverAll Services
-def generate_prediction_OverAll_Services(text, loadModel_OverAll, vectorizerOverAll):
+        # Load Model
+        confidence = loadModel_InFlight.predict_proba(X_pred_transform)[
+            0]
 
-    # Text Preprocessing
-    preprocessed_text = preprocess_text(text)
-    X_pred_transform = vectorizerOverAll.transform([preprocessed_text])
-    # Load Model
-    prediction = loadModel_OverAll.predict(X_pred_transform)
-    confidence = loadModel_OverAll.predict_proba(X_pred_transform)[
-        0]
-    return prediction, confidence
+        # Accumulate confidence scores
+        total_confidence[0] += confidence[0]  # Negative
+        total_confidence[1] += confidence[1]  # Neutral
+        total_confidence[2] += confidence[2]  # Positive
+
+    avg_confidence = [score / num_texts for score in total_confidence]
+
+    return avg_confidence
 
 
 # Generate Prediction for Recommended flight or not
 def generate_prediction_Recommendation_flight(text, loadModel_RecommendedService, vectorizerRecommended):
+    total_confidence = [0, 0]
+    num_texts = len(text)
 
-    # Text Preprocessing
-    preprocessed_text = preprocess_text(text)
-    X_pred_transform = vectorizerRecommended.transform([preprocessed_text])
-    # Load Model
-    prediction = loadModel_RecommendedService.predict(X_pred_transform)
-    confidence = loadModel_RecommendedService.predict_proba(X_pred_transform)[
-        0]
-    return prediction, confidence
+    for text_item in text:
+        # Convert text_item to string to handle float values
+        text_item = str(text_item)
 
+        # Text Preprocessing
+        preprocessed_text = preprocess_text(text_item)
+        X_pred_transform = vectorizerRecommended.transform(
+            [preprocessed_text])
 
-# @app.route('/')
-# def index():
-#     return render_template("index.html")
+        # Load Model
+        confidence = loadModel_RecommendedService.predict_proba(X_pred_transform)[
+            0]
 
+        # Accumulate confidence scores
+        total_confidence[0] += confidence[0]  # Negative
+        total_confidence[1] += confidence[1]  # Neutral
 
-# @app.route('/analyze/entertainment', methods=['POST'])
-# def analyze_entertainment():
-#     if request.method == 'POST':
-#         text_input = request.form['text_input']
-#         prediction, confidence = generate_prediction_Entertenment_Services(
-#             text_input, loadModel_EnternamentService, vectorizerEnternment)
-#         positive_confidence = confidence[2] * 100
-#         neutral_confidence = confidence[1] * 100
-#         negative_confidence = confidence[0] * 100
-#         prediction_result = f"Positive = {positive_confidence:.2f}% confidence\n Neutral = {neutral_confidence:.2f}% confidence\n Negative = {negative_confidence:.2f}% confidence"
-#         return render_template('index.html', prediction=prediction_result)
-#     return redirect('/')
+    avg_confidence = [score / num_texts for score in total_confidence]
 
-
-# @app.route('/analyze/food_catering', methods=['POST'])
-# def analyze_food_catering():
-#     if request.method == 'POST':
-#         text_input = request.form['text_input']
-#         prediction, confidence = generate_prediction_Food_Catering_Services(
-#             text_input, loadModel_FoodCatering, vectorizerFoodCatering)
-#         positive_confidence = confidence[2] * 100
-#         neutral_confidence = confidence[1] * 100
-#         negative_confidence = confidence[0] * 100
-#         prediction_result = f"Positive = {positive_confidence:.2f}% confidence\n Neutral = {neutral_confidence:.2f}% confidence\n Negative = {negative_confidence:.2f}% confidence"
-#         return render_template('index.html', prediction=prediction_result)
-#     return redirect('/')
-
-
-# @app.route('/analyze/ground_services', methods=['POST'])
-# def analyze_ground_services():
-#     if request.method == 'POST':
-#         text_input = request.form['text_input']
-#         prediction, confidence = generate_prediction_Ground_Services(
-#             text_input, loadModel_GroundService, vectorizerGroundService)
-#         positive_confidence = confidence[2] * 100
-#         neutral_confidence = confidence[1] * 100
-#         negative_confidence = confidence[0] * 100
-#         prediction_result = f"Positive = {positive_confidence:.2f}% confidence\n Neutral = {neutral_confidence:.2f}% confidence\n Negative = {negative_confidence:.2f}% confidence"
-#         return render_template('index.html', prediction=prediction_result)
-#     return redirect('/')
-
-
-# @app.route('/analyze/seat_comfort', methods=['POST'])
-# def analyze_seat_comfort():
-#     if request.method == 'POST':
-#         text_input = request.form['text_input']
-#         prediction, confidence = generate_prediction_SeatComfart_Services(
-#             text_input, loadModel_SeatComfort, vectorizerSeatComfort)
-#         positive_confidence = confidence[2] * 100
-#         neutral_confidence = confidence[1] * 100
-#         negative_confidence = confidence[0] * 100
-#         prediction_result = f"Positive = {positive_confidence:.2f}% confidence\n Neutral = {neutral_confidence:.2f}% confidence\n Negative = {negative_confidence:.2f}% confidence"
-#         return render_template('index.html', prediction=prediction_result)
-#     return redirect('/')
-
-
-# @app.route('/analyze/inflight_services', methods=['POST'])
-# def analyze_inflight_services():
-#     if request.method == 'POST':
-#         text_input = request.form['text_input']
-#         prediction, confidence = generate_prediction_InFlight_Services(
-#             text_input, loadModel_InFlight, vectorizerInFlight)
-#         positive_confidence = confidence[2] * 100
-#         neutral_confidence = confidence[1] * 100
-#         negative_confidence = confidence[0] * 100
-#         prediction_result = f"Positive = {positive_confidence:.2f}% confidence\n Neutral = {neutral_confidence:.2f}% confidence\n Negative = {negative_confidence:.2f}% confidence"
-#         return render_template('index.html', prediction=prediction_result)
-#     return redirect('/')
-
-
-# @app.route('/analyze/overall_services', methods=['POST'])
-# def analyze_overall_services():
-#     if request.method == 'POST':
-#         text_input = request.form['text_input']
-#         prediction, confidence = generate_prediction_OverAll_Services(
-#             text_input, loadModel_OverAll, vectorizerOverAll)
-#         positive_confidence = confidence[2] * 100
-#         neutral_confidence = confidence[1] * 100
-#         negative_confidence = confidence[0] * 100
-#         prediction_result = f"Positive = {positive_confidence:.2f}% confidence\n Neutral = {neutral_confidence:.2f}% confidence\n Negative = {negative_confidence:.2f}% confidence"
-#         return render_template('index.html', prediction=prediction_result)
-#     return redirect('/')
-
-
-# @app.route('/analyze/recommended_services', methods=['POST'])
-# def analyze_recommended_services():
-#     if request.method == 'POST':
-#         text_input = request.form['text_input']
-#         prediction, confidence = generate_prediction_Recommendation_flight(
-#             text_input, loadModel_RecommendedService, vectorizerRecommended)
-#         recommendedYes = confidence[1] * 100
-#         recommendedNo = confidence[0] * 100
-#         prediction_result = f"Recommended = {recommendedYes:.2f}% confidence\n Not Recommended = {recommendedYes:.2f}% confidence"
-#         return render_template('index.html', prediction=prediction_result)
-#     return redirect('/')
+    return avg_confidence
 
 
 @app.route('/')
+def front():
+    return render_template("front.html")
+
+
+@app.route('/service1', methods=['GET', 'POST'])
+def extract_data():
+    if request.method == 'POST':
+        data = request.json
+        max_pages = data['maxPages']
+
+        # Base URL of the airline reviews page
+        base_url = "https://www.airlinequality.com/airline-reviews/air-india/"
+        all_reviews = scrape_multiple_pages(base_url, max_pages)
+
+        # Write scraped data to a CSV file
+        csv_file = "./Pipeline data/air_india_reviews.csv"
+        with open(csv_file, "w", newline="", encoding="utf-8") as file:
+            writer = csv.DictWriter(file, fieldnames=["Date", "Review"])
+            writer.writeheader()
+            writer.writerows(all_reviews)
+
+        return render_template('index.html')
+
+    # For GET requests, simply render the template
+    return render_template('dataExtract.html')
+
+
+@app.route('/service2')
 def index():
-    return render_template("index.html")
+    return render_template('index.html')
 
 
 @app.route('/process', methods=['POST'])
@@ -272,38 +349,43 @@ def process():
     end_date = request.form['end_date']
     csv_file = request.files['csv_file']
 
-    # Read CSV file into pandas DataFrame
+    # # Read CSV file into pandas DataFrame
     csv_data = csv_file.read().decode('utf-8')
     df = pd.read_csv(StringIO(csv_data))
 
-    # # Convert 'date' column to datetime
+    # # # Convert 'date' column to datetime
     df['Date'] = pd.to_datetime(df['Date'])
 
-    # # Filter DataFrame based on selected date range
+    # # # Filter DataFrame based on selected date range
     filtered_df = df[(df['Date'] >= start_date) & (df['Date'] <= end_date)]
 
-    # # Extract 'review' column
-    reviewss = filtered_df['Review'].tolist()
+    reviews = ''
+    rvList = filtered_df['Review'].tolist()
+    # Iterate through each review and concatenate it to the reviews string
+    # for review in filtered_df['Review'].astype(str).tolist():
+    #     try:
+    #         # Join each review to the reviews string
+    #         reviews += review + '\n'
+    #     except Exception as e:
+    #         continue
 
-    reviews = '\n'.join(reviewss)
-    # return reviews
-    
+    # reviewss = filtered_df['Review'].items()
+    # reviews = '\n'.join(reviewss)
+
     if request.method == 'POST':
         # Perform predictions for all services
-        prediction_entertainment, confidence_entertainment = generate_prediction_Entertenment_Services(
-            reviews, loadModel_EnternamentService, vectorizerEnternment)
-        prediction_food_catering, confidence_food_catering = generate_prediction_Food_Catering_Services(
-            reviews, loadModel_FoodCatering, vectorizerFoodCatering)
-        prediction_ground_services, confidence_ground_services = generate_prediction_Ground_Services(
-            reviews, loadModel_GroundService, vectorizerGroundService)
-        prediction_seat_comfort, confidence_seat_comfort = generate_prediction_SeatComfart_Services(
-            reviews, loadModel_SeatComfort, vectorizerSeatComfort)
-        prediction_inflight_services, confidence_inflight_services = generate_prediction_InFlight_Services(
-            reviews, loadModel_InFlight, vectorizerInFlight)
-        prediction_overall_services, confidence_overall_services = generate_prediction_OverAll_Services(
-            reviews, loadModel_OverAll, vectorizerOverAll)
-        prediction_recommended_services, confidence_recommended_services = generate_prediction_Recommendation_flight(
-            reviews, loadModel_RecommendedService, vectorizerRecommended)
+        confidence_entertainment = generate_prediction_Entertenment_Services(
+            rvList, loadModel_EnternamentService, vectorizerEnternment)
+        confidence_food_catering = generate_prediction_Food_Catering_Services(
+            rvList, loadModel_FoodCatering, vectorizerFoodCatering)
+        confidence_ground_services = generate_prediction_Ground_Services(
+            rvList, loadModel_GroundService, vectorizerGroundService)
+        confidence_seat_comfort = generate_prediction_SeatComfart_Services(
+            rvList, loadModel_SeatComfort, vectorizerSeatComfort)
+        confidence_inflight_services = generate_prediction_InFlight_Services(
+            rvList, loadModel_InFlight, vectorizerInFlight)
+        confidence_recommended_services = generate_prediction_Recommendation_flight(
+            rvList, loadModel_RecommendedService, vectorizerRecommended)
 
         # Entertement services cofidence score
         Enterntenment_positive = confidence_entertainment[2] * 100
@@ -315,7 +397,12 @@ def process():
                               'Neutral Feedback', 'Negative Feedback']
         valuesEnternment = [Enterntenment_positive,
                             Enterntenment_neutral, Enterntenment_negative]
-        plt.bar(labelsEntertenment, valuesEnternment)
+        # Adjust figure size
+        plt.figure(figsize=(6, 4))
+
+# Define colors for each sentiment
+        colors = ['skyblue', 'yellow', 'red']
+        plt.bar(labelsEntertenment, valuesEnternment, color=colors)
         # Annotate each bar with its percentage value
         for i, value in enumerate(valuesEnternment):
             plt.text(i, value + 2, f"{value:.1f}%", ha='center')
@@ -345,7 +432,11 @@ def process():
                               'Neutral Feedback', 'Negative Feedback']
         valuesFoodCatering = [FoodCatering_positive,
                               FoodCatering_neutral, FoodCatering_negative]
-        plt.bar(labelsFoodCatering, valuesFoodCatering)
+        plt.figure(figsize=(6, 4))
+
+# Define colors for each sentiment
+        colors = ['skyblue', 'yellow', 'red']
+        plt.bar(labelsFoodCatering, valuesFoodCatering, color=colors)
         # Annotate each bar with its percentage value
         for i, value in enumerate(valuesFoodCatering):
             plt.text(i, value + 2, f"{value:.1f}%", ha='center')
@@ -375,7 +466,11 @@ def process():
                                 'Neutral Feedback', 'Negative Feedback']
         valuesGroundServices = [GroundService_positive,
                                 GroundService_neutral, GroundService_negative]
-        plt.bar(labelsGroundServices, valuesGroundServices)
+        plt.figure(figsize=(6, 4))
+
+# Define colors for each sentiment
+        colors = ['skyblue', 'yellow', 'red']
+        plt.bar(labelsGroundServices, valuesGroundServices, color=colors)
         # Annotate each bar with its percentage value
         for i, value in enumerate(valuesGroundServices):
             plt.text(i, value + 2, f"{value:.1f}%", ha='center')
@@ -405,7 +500,12 @@ def process():
                                      'Neutral Feedback', 'Negative Feedback']
         valuesSeatComfartServices = [SeatComfort_positive,
                                      SeatComfort_neutral, SeatComfort_negative]
-        plt.bar(labelsSeatComfartServices, valuesSeatComfartServices)
+        plt.figure(figsize=(6, 4))
+
+# Define colors for each sentiment
+        colors = ['skyblue', 'yellow', 'red']
+        plt.bar(labelsSeatComfartServices,
+                valuesSeatComfartServices, color=colors)
         # Annotate each bar with its percentage value
         for i, value in enumerate(valuesSeatComfartServices):
             plt.text(i, value + 2, f"{value:.1f}%", ha='center')
@@ -436,7 +536,11 @@ def process():
                                   'Neutral Feedback', 'Negative Feedback']
         valuesInFlightServices = [Inflight_positive,
                                   Inflight_neutral, Inflight_negative]
-        plt.bar(labelsInFlightServices, valuesInFlightServices)
+        plt.figure(figsize=(6, 4))
+
+# Define colors for each sentiment
+        colors = ['skyblue', 'yellow', 'red']
+        plt.bar(labelsInFlightServices, valuesInFlightServices, color=colors)
         # Annotate each bar with its percentage value
         for i, value in enumerate(valuesInFlightServices):
             plt.text(i, value + 2, f"{value:.1f}%", ha='center')
@@ -458,16 +562,23 @@ def process():
         plt.close()
 
         # OverAll services cofidence score
-        OverAll_positive = confidence_overall_services[2] * 100
-        OverAll_neutral = confidence_overall_services[1] * 100
-        OverAll_negative = confidence_overall_services[0] * 100
+        OverAll_positive = (Enterntenment_positive + FoodCatering_positive +
+                            GroundService_positive + SeatComfort_positive + Inflight_positive) / 5
+        OverAll_neutral = (Enterntenment_neutral + FoodCatering_neutral +
+                           GroundService_neutral + SeatComfort_neutral + Inflight_neutral) / 5
+        OverAll_negative = (Enterntenment_negative + FoodCatering_negative +
+                            GroundService_negative + SeatComfort_negative + Inflight_negative) / 5
 
         # Create bar chart for OverAll Services
         labelsOverAllServices = ['Positive Feedback',
                                  'Neutral Feedback', 'Negative Feedback']
         valuesOverAllServices = [OverAll_positive,
                                  OverAll_neutral, OverAll_negative]
-        plt.bar(labelsOverAllServices, valuesOverAllServices)
+        plt.figure(figsize=(6, 4))
+
+# Define colors for each sentiment
+        colors = ['skyblue', 'yellow', 'red']
+        plt.bar(labelsOverAllServices, valuesOverAllServices, color=colors)
         # Annotate each bar with its percentage value
         for i, value in enumerate(valuesOverAllServices):
             plt.text(i, value + 2, f"{value:.1f}%", ha='center')
@@ -495,7 +606,7 @@ def process():
         labelsRecommendation = ['Recommended', 'Not Recommended']
         valuesRecommendation = [recommendedYes, recommendedNo]
 
-        plt.figure(figsize=(8, 6))
+        plt.figure(figsize=(6, 4))
         plt.pie(valuesRecommendation, labels=labelsRecommendation,
                 autopct='%1.1f%%', startangle=140)
         plt.title('Recommended Services')
@@ -518,13 +629,6 @@ def process():
                                plot_inFlight=plot_url_InFlight_Services,
                                plot_OverAll=plot_url_OverAll_Services,
                                plot_recommended=plot_url_recommended_services
-                               #    prediction_entertainment=f"Positive = {Enterntenment_positive:.2f}% confidence\n Neutral = {Enterntenment_neutral:.2f}% confidence\n Negative = {Enterntenment_negative:.2f}% confidence",
-                               #    prediction_food_catering=f"Positive = {FoodCatering_positive:.2f}% confidence\n Neutral = {FoodCatering_neutral:.2f}% confidence\n Negative = {FoodCatering_negative:.2f}% confidence",
-                               #    prediction_ground_services=f"Positive = {GroundService_positive:.2f}% confidence\n Neutral = {GroundService_neutral:.2f}% confidence\n Negative = {GroundService_negative:.2f}% confidence",
-                               #    prediction_seat_comfort=f"Positive = {SeatComfort_positive:.2f}% confidence\n Neutral = {SeatComfort_neutral:.2f}% confidence\n Negative = {SeatComfort_negative:.2f}% confidence",
-                               #    prediction_inflight_services=f"Positive = {Inflight_positive:.2f}% confidence\n Neutral = {Inflight_neutral:.2f}% confidence\n Negative = {Inflight_negative:.2f}% confidence",
-                               #    prediction_overall_services=f"Positive = {OverAll_positive:.2f}% confidence\n Neutral = {OverAll_neutral:.2f}% confidence\n Negative = {OverAll_negative:.2f}% confidence",
-                               #    prediction_recommended_services=f"Recommended = {recommendedYes:.2f}% confidence\n Not Recommended = {recommendedNo:.2f}% confidence"
                                )
     return redirect('/')
 
