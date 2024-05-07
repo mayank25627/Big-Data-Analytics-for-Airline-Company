@@ -55,11 +55,7 @@ loadModel_RecommendedService = pickle.load(open(
     r'D:\Big Data Analytics of Airline Company\Final model with transformation\Recommendation_flight\trained_Recommended_services.sav', 'rb'))
 
 
-# Load Keyword Json File
-
-
 # Preprocess Text Function
-
 def preprocess_text(text):
     text = text.lower()
     tokens = word_tokenize(text)
@@ -69,19 +65,7 @@ def preprocess_text(text):
     preprocessed_text = ' '.join(tokens)
     return preprocessed_text
 
-# Function to filter text based on keywords
-
-
-def filter_text_by_keywords(text_list, keywords):
-    text_list = str(text_list)
-    filtered_text = []
-    for text in text_list:
-        if any(keyword in text for keyword in keywords):
-            filtered_text.append(text)
-    return filtered_text
-
-
-# web scrappring
+# Date formating the data after loading
 
 
 def convert_date(date_str):
@@ -127,9 +111,42 @@ def scrape_multiple_pages(base_url, max_pages):
         all_reviews.extend(reviews_on_page)
     return all_reviews
 
+# Filter the reviews according to our json file
+
+
+def filter_reviews(rvList, keywords_file):
+
+    with open(keywords_file, 'r') as f:
+        keywords = json.load(f)
+
+    # empty list initilized
+    matched_reviews = []
+
+    # Iterate over each review
+    for review in rvList:
+        # Iterate over each keyword
+        for keyword in keywords:
+            # Check if the keyword is present in the review text
+            if keyword.lower() in review.lower():
+                # If keyword is found, add the entire row to the matched_reviews list
+                matched_reviews.append(review)
+                # If a review matches a keyword, break the loop to avoid adding it to multiple categories
+                break
+
+    return matched_reviews
+
 
 # Generate Prediction for Enternmenet Services
 def generate_prediction_Entertenment_Services(text, loadModel_EnternamentService, vectorizerEnternment):
+
+    keywords_file = r'D:\Big Data Analytics of Airline Company\Keyword_wise_Validation_Data\Entertainment_Keywords.json'
+    text = filter_reviews(text, keywords_file)
+
+    # output_file = 'data.txt'
+    # with open(output_file, 'w') as file:
+    #     # Write each element of the list to the file
+    #     for item in text:
+    #         file.write('%s\n' % item)
 
     total_confidence = [0, 0, 0]
     num_texts = len(text)
@@ -159,16 +176,9 @@ def generate_prediction_Entertenment_Services(text, loadModel_EnternamentService
 
 # Generate Prediction for FoodCatering Services
 def generate_prediction_Food_Catering_Services(text, loadModel_FoodCatering, vectorizerFoodCatering):
-    # Load keywords from JSON file
-    # with open('D:\Big Data Analytics of Airline Company\Keyword_wise_Validation_Data\Food_Keywords.json') as f:
-    #     keywords = json.load(f)
 
-    # # text = str(text)
-    # filtered_text = filter_text_by_keywords(text, keywords)
-
-    # if len(filtered_text) == 0:
-    #     # Return default confidence scores if no text is filtered
-    #     return [0, 0, 0]
+    keywords_file = r'D:\Big Data Analytics of Airline Company\Keyword_wise_Validation_Data\Food_Keywords.json'
+    text = filter_reviews(text, keywords_file)
 
     # Initialize total confidence scores for negative, neutral, and positive
     total_confidence = [0, 0, 0]
@@ -195,10 +205,13 @@ def generate_prediction_Food_Catering_Services(text, loadModel_FoodCatering, vec
 
     return avg_confidence
 
+
 # Generate Prediction for Ground Services
-
-
 def generate_prediction_Ground_Services(text, loadModel_GroundService, vectorizerGroundService):
+
+    keywords_file = r'D:\Big Data Analytics of Airline Company\Keyword_wise_Validation_Data\Ground_Keywords.json'
+    text = filter_reviews(text, keywords_file)
+
     total_confidence = [0, 0, 0]
     num_texts = len(text)
 
@@ -224,10 +237,13 @@ def generate_prediction_Ground_Services(text, loadModel_GroundService, vectorize
 
     return avg_confidence
 
+
 # Generate Prediction for Seat Comfart Services
-
-
 def generate_prediction_SeatComfart_Services(text, loadModel_SeatComfort, vectorizerSeatComfort):
+
+    keywords_file = r'D:\Big Data Analytics of Airline Company\Keyword_wise_Validation_Data\Seat_Keywords.json'
+    text = filter_reviews(text, keywords_file)
+
     total_confidence = [0, 0, 0]
     num_texts = len(text)
 
@@ -253,10 +269,13 @@ def generate_prediction_SeatComfart_Services(text, loadModel_SeatComfort, vector
 
     return avg_confidence
 
+
 # Generate Prediction for InFlight Services
-
-
 def generate_prediction_InFlight_Services(text, loadModel_InFlight, vectorizerInFlight):
+
+    keywords_file = r'D:\Big Data Analytics of Airline Company\Keyword_wise_Validation_Data\InFlight_Keywords.json'
+    text = filter_reviews(text, keywords_file)
+
     total_confidence = [0, 0, 0]
     num_texts = len(text)
 
@@ -285,6 +304,10 @@ def generate_prediction_InFlight_Services(text, loadModel_InFlight, vectorizerIn
 
 # Generate Prediction for Recommended flight or not
 def generate_prediction_Recommendation_flight(text, loadModel_RecommendedService, vectorizerRecommended):
+
+    keywords_file = r'D:\Big Data Analytics of Airline Company\Keyword_wise_Validation_Data\Recommendation_Keywords.json'
+    text = filter_reviews(text, keywords_file)
+
     total_confidence = [0, 0]
     num_texts = len(text)
 
