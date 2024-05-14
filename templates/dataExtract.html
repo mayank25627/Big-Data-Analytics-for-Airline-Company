@@ -110,6 +110,13 @@ button[type="submit"]:hover,
   <form id="data-extraction-form">
     <label for="max-pages">Maximum Pages:</label>
     <input type="number" id="max-pages" name="max-pages" value="100" min="1">
+    
+    <label for="start-date">Start Date:</label>
+    <input type="date" id="start-date" name="start-date">
+    
+    <label for="end-date">End Date:</label>
+    <input type="date" id="end-date" name="end-date">
+
     <button type="submit">Start Extraction</button>
     <button id="service2">Make Predication</button>
   
@@ -124,25 +131,29 @@ button[type="submit"]:hover,
   <!-- Add a success message -->
   <div id="success" style="display: none;">Data successfully extracted and saved locally.</div>
 
-
   <script>
     document.getElementById("data-extraction-form").addEventListener("submit", function(event) {
       event.preventDefault(); // Prevent the form from submitting normally
 
-      // Get the value of max-pages input
+      // Get the values of max-pages, start date, and end date inputs
       var maxPages = document.getElementById("max-pages").value;
+      var startDate = document.getElementById("start-date").value;
+      var endDate = document.getElementById("end-date").value;
 
       // Show loading message
       document.getElementById("loading").style.display = "block";
-      document.getElementById("loading").classList.add("fadeInOut"); // Add animation
 
-      // Send maxPages value to Flask backend using fetch API
-      fetch("/service1", { // Update the route to match the Flask route
+      // Send data to Flask backend using fetch API
+      fetch("/service1", {
           method: "POST",
           headers: {
               "Content-Type": "application/json" // Set Content-Type header to JSON
           },
-          body: JSON.stringify({ maxPages: maxPages })
+          body: JSON.stringify({ 
+              maxPages: maxPages,
+              startDate: startDate,
+              endDate: endDate
+          })
       })
       .then(response => {
           if (response.ok) {
@@ -151,7 +162,6 @@ button[type="submit"]:hover,
               document.getElementById("loading").style.display = "none";
               // Show success message
               document.getElementById("success").style.display = "block";
-              document.getElementById("success").classList.add("fadeInOut"); // Add animation
           } else {
               console.error("Extraction failed!");
           }
@@ -159,12 +169,11 @@ button[type="submit"]:hover,
       .catch(error => {
           console.error("Error occurred:", error);
       });
-  });
+    });
 
-
-  document.getElementById("service2").addEventListener("click", function() {
-  window.location.href = "/service2"; // Redirect to the Flask route for Service 2
-});
+    document.getElementById("service2").addEventListener("click", function() {
+      window.location.href = "/service2"; // Redirect to the Flask route for Service 2
+    });
   </script>
 </body>
 </html>

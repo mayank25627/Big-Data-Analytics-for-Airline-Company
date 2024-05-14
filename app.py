@@ -1,5 +1,6 @@
 from io import StringIO
 from sklearn.feature_extraction.text import TfidfVectorizer
+from sklearn.linear_model import LogisticRegression
 import base64
 import io
 from flask import Flask, render_template, request, redirect
@@ -17,11 +18,15 @@ import csv
 import requests
 from bs4 import BeautifulSoup
 from dateutil import parser
+import string
+from sklearn.metrics import accuracy_score
+string.punctuation
+exclude = string.punctuation
 matplotlib.use('Agg')
 
 # All Vectorizers Model for Transform the new text according to model vectorizer
 vectorizerEnternment = joblib.load(
-    'D:\Big Data Analytics of Airline Company\Final model with transformation\Enternment_services\Entertenment_service_vectrorizer.pkl')
+    'D:\Big Data Analytics of Airline Company\Final model with transformation\Enternment_services\Entertainment_service_vectorizer.pkl')
 vectorizerFoodCatering = joblib.load(
     'D:\Big Data Analytics of Airline Company\Final model with transformation\Food_Catering\Food_Catering_service_vectrorizer.pkl')
 vectorizerGroundService = joblib.load(
@@ -78,7 +83,27 @@ def convert_date(date_str):
 # Function to scrape reviews from a given URL
 
 
-def scrape_reviews(url):
+def scrape_reviews(url, start_date=None, end_date=None):
+    reviews_data = []
+    r = requests.get(url)
+    soup = BeautifulSoup(r.text, "html.parser")
+    review_blocks = soup.find_all(
+        "h3", class_="text_sub_header userStatusWrapper")
+    for review_block in review_blocks:
+        date = review_block.find(
+            "time", itemprop="datePublished").get_text(strip=True)
+        formatted_date = convert_date(date)
+        if start_date and end_date:
+            if not (start_date <= formatted_date <= end_date):
+                continue  # Skip reviews outside of the date range
+        text = review_block.find_next(
+            "div", class_="text_content").get_text(strip=True)
+        text = text.replace("✅Trip Verified|", "").replace(
+            "Not Verified", "").replace("|", "")
+        reviews_data.append({"Date": formatted_date, "Review": text})
+    return reviews_data
+
+# def scrape_reviews(url):
     reviews_data = []
     r = requests.get(url)
     soup = BeautifulSoup(r.text, "html.parser")
@@ -101,7 +126,16 @@ def scrape_reviews(url):
 # Function to scrape reviews from multiple pages
 
 
-def scrape_multiple_pages(base_url, max_pages):
+def scrape_multiple_pages(base_url, max_pages, start_date=None, end_date=None):
+    all_reviews = []
+    max_pages = int(max_pages)
+    for page in range(1, max_pages + 1):
+        page_url = base_url + "page/{}/".format(page)
+        reviews_on_page = scrape_reviews(page_url, start_date, end_date)
+        all_reviews.extend(reviews_on_page)
+    return all_reviews
+
+# def scrape_multiple_pages(base_url, max_pages):
     all_reviews = []
     # Convert max_pages to integer
     max_pages = int(max_pages)
@@ -136,7 +170,14 @@ def filter_reviews(rvList, keywords_file):
     return matched_reviews
 
 
+def remove_punc(text):
+    for char in exclude:
+        text = text.replace(char, ' ')
+    return text
+
 # Generate Prediction for Enternmenet Services
+
+
 def generate_prediction_Entertenment_Services(text, loadModel_EnternamentService, vectorizerEnternment):
 
     keywords_file = r'D:\Big Data Analytics of Airline Company\Keyword_wise_Validation_Data\Entertainment_Keywords.json'
@@ -333,22 +374,339 @@ def generate_prediction_Recommendation_flight(text, loadModel_RecommendedService
     return avg_confidence
 
 
+def training_Entertainment_model(loadModel_EnternamentService, new_csv_file):
+    # Read the CSV file into a DataFrame
+    new_data = pd.read_csv(StringIO(new_csv_file.read().decode('utf-8')))
+
+    # Load the old file through which I trained my existing model
+    original_data = pd.read_csv(
+        'D:/Big Data Analytics of Airline Company/Saved Csv File For All Model Training/Enternment_services.csv', encoding='ISO-8859-1')
+
+    # Extract original features and target variable
+    X_original = original_data['Review']
+    y_original = original_data['EntertainmentRating']
+
+    # Extract features and target variable from new data CSV file like those more aspects you have to add to the existing model.
+    X_new = new_data['Review']
+    y_new = new_data['EntertainmentRating']
+
+    # Preprocess the new data present in the CSV file
+    X_new = X_new.apply(preprocess_text)
+    X_new = X_new.apply(remove_punc)
+
+    # Combine both new and existing file data so that I add new aspects in the CSV file
+    X_combined = pd.concat([X_original, X_new], axis=0)
+    y_combined = pd.concat([y_original, y_new], axis=0)
+
+    X_combined.fillna('', inplace=True)
+
+    # This is the logic for saving the new combined file for future training purposes so we add new more aspects in continuity
+    combined_data = pd.concat([X_combined, y_combined], axis=1)
+    combined_data.columns = ['Review', 'EntertainmentRating']
+    combined_data.to_csv(
+        'D:/Big Data Analytics of Airline Company/Saved Csv File For All Model Training/Enternment_services.csv', index=False)
+
+    # Vectorize this new data through we trained the model
+    traning_entertainment_vectrorizer = TfidfVectorizer()
+    X_combined_vectorized = traning_entertainment_vectrorizer.fit_transform(
+        X_combined)
+
+    # Save the Vectorizer
+    vectorizer_filename = 'D:/Big Data Analytics of Airline Company/Final model with transformation/Enternment_services/Entertainment_service_vectorizer.pkl'
+    joblib.dump(traning_entertainment_vectrorizer, vectorizer_filename)
+
+    # Trained the model with the data, i.e., fit the data into the model
+    loadModel_EnternamentService.fit(X_combined_vectorized, y_combined)
+
+    # Save the new trained model
+    model_filename = 'D:/Big Data Analytics of Airline Company/Final model with transformation/Enternment_services/trained_entertainment_service.sav'
+    pickle.dump(loadModel_EnternamentService, open(model_filename, 'wb'))
+
+    return
+
+
+def training_Food_Catering_model(loadModel_FoodCatering, new_csv_file):
+    # Read the CSV file into a DataFrame
+    new_data = pd.read_csv(StringIO(new_csv_file.read().decode('utf-8')))
+
+    # Load the old file through which I trained my existing model
+    original_data = pd.read_csv(
+        'D:/Big Data Analytics of Airline Company/Saved Csv File For All Model Training/Food_catering_services.csv', encoding='ISO-8859-1')
+
+    # Extract original features and target variable
+    X_original = original_data['Review']
+    y_original = original_data['FoodRating']
+
+    # Extract features and target variable from new data CSV file like those more aspects you have to add to the existing model.
+    X_new = new_data['Review']
+    y_new = new_data['FoodRating']
+
+    # Preprocess the new data present in the CSV file
+    X_new = X_new.apply(preprocess_text)
+    X_new = X_new.apply(remove_punc)
+
+    # Combine both new and existing file data so that I add new aspects in the CSV file
+    X_combined = pd.concat([X_original, X_new], axis=0)
+    y_combined = pd.concat([y_original, y_new], axis=0)
+
+    X_combined.fillna('', inplace=True)
+
+    # This is the logic for saving the new combined file for future training purposes so we add new more aspects in continuity
+    combined_data = pd.concat([X_combined, y_combined], axis=1)
+    combined_data.columns = ['Review', 'FoodRating']
+    combined_data.to_csv(
+        'D:/Big Data Analytics of Airline Company/Saved Csv File For All Model Training/Food_catering_services.csv', index=False)
+
+    # Vectorize this new data through we trained the model
+    training_Food_Catering_vectorizer = TfidfVectorizer()
+    X_combined_vectorized = training_Food_Catering_vectorizer.fit_transform(
+        X_combined)
+
+    # Save the Vectorizer
+    vectorizer_filename = 'D:/Big Data Analytics of Airline Company/Final model with transformation/Food_Catering/Food_Catering_service_vectrorizer.pkl'
+    joblib.dump(training_Food_Catering_vectorizer, vectorizer_filename)
+
+    # Trained the model with the data, i.e., fit the data into the model
+    loadModel_FoodCatering.fit(X_combined_vectorized, y_combined)
+
+    # Save the new trained model
+    model_filename = 'D:/Big Data Analytics of Airline Company/Final model with transformation/Food_Catering/trained_food_catering_services.sav'
+    pickle.dump(loadModel_FoodCatering, open(model_filename, 'wb'))
+
+    return
+
+
+def training_Ground_model(loadModel_GroundService, new_csv_file):
+    # Read the CSV file into a DataFrame
+    new_data = pd.read_csv(StringIO(new_csv_file.read().decode('utf-8')))
+
+    # Load the old file through which I trained my existing model
+    original_data = pd.read_csv(
+        'D:/Big Data Analytics of Airline Company/Saved Csv File For All Model Training/Ground_services.csv', encoding='ISO-8859-1')
+
+    # Extract original features and target variable
+    X_original = original_data['Review']
+    y_original = original_data['GroundServiceRating']
+
+    # Extract features and target variable from new data CSV file like those more aspects you have to add to the existing model.
+    X_new = new_data['Review']
+    y_new = new_data['GroundServiceRating']
+
+    # Preprocess the new data present in the CSV file
+    X_new = X_new.apply(preprocess_text)
+    X_new = X_new.apply(remove_punc)
+
+    # Combine both new and existing file data so that I add new aspects in the CSV file
+    X_combined = pd.concat([X_original, X_new], axis=0)
+    y_combined = pd.concat([y_original, y_new], axis=0)
+
+    X_combined.fillna('', inplace=True)
+
+    # This is the logic for saving the new combined file for future training purposes so we add new more aspects in continuity
+    combined_data = pd.concat([X_combined, y_combined], axis=1)
+    combined_data.columns = ['Review', 'GroundServiceRating']
+    combined_data.to_csv(
+        'D:/Big Data Analytics of Airline Company/Saved Csv File For All Model Training/Ground_services.csv', index=False)
+
+    # Vectorize this new data through we trained the model
+    traning_Ground_vectrorizer = TfidfVectorizer()
+    X_combined_vectorized = traning_Ground_vectrorizer.fit_transform(
+        X_combined)
+
+    # Save the Vectorizer
+    vectorizer_filename = 'D:/Big Data Analytics of Airline Company/Final model with transformation/Ground_service/Ground_service_vectrorizer.pkl'
+    joblib.dump(traning_Ground_vectrorizer, vectorizer_filename)
+
+    # Trained the model with the data, i.e., fit the data into the model
+    loadModel_GroundService.fit(X_combined_vectorized, y_combined)
+
+    # Save the new trained model
+    model_filename = 'D:/Big Data Analytics of Airline Company/Final model with transformation/Ground_service/trained_ground_services.sav'
+    pickle.dump(loadModel_GroundService, open(model_filename, 'wb'))
+
+    return
+
+
+def training_Seat_Comfort_model(loadModel_SeatComfort, new_csv_file):
+    # Read the CSV file into a DataFrame
+    new_data = pd.read_csv(StringIO(new_csv_file.read().decode('utf-8')))
+
+    # Load the old file through which I trained my existing model
+    original_data = pd.read_csv(
+        'D:/Big Data Analytics of Airline Company/Saved Csv File For All Model Training/Comfart_seat_services.csv', encoding='ISO-8859-1')
+
+    # Extract original features and target variable
+    X_original = original_data['Review']
+    y_original = original_data['SeatComfortRating']
+
+    # Extract features and target variable from new data CSV file like those more aspects you have to add to the existing model.
+    X_new = new_data['Review']
+    y_new = new_data['SeatComfortRating']
+
+    # Preprocess the new data present in the CSV file
+    X_new = X_new.apply(preprocess_text)
+    X_new = X_new.apply(remove_punc)
+
+    # Combine both new and existing file data so that I add new aspects in the CSV file
+    X_combined = pd.concat([X_original, X_new], axis=0)
+    y_combined = pd.concat([y_original, y_new], axis=0)
+
+    X_combined.fillna('', inplace=True)
+
+    # This is the logic for saving the new combined file for future training purposes so we add new more aspects in continuity
+    combined_data = pd.concat([X_combined, y_combined], axis=1)
+    combined_data.columns = ['Review', 'SeatComfortRating']
+    combined_data.to_csv(
+        'D:/Big Data Analytics of Airline Company/Saved Csv File For All Model Training/Comfart_seat_services.csv', index=False)
+
+    # Vectorize this new data through we trained the model
+    traning_Seat_Comfort_vectrorizer = TfidfVectorizer()
+    X_combined_vectorized = traning_Seat_Comfort_vectrorizer.fit_transform(
+        X_combined)
+
+    # Save the Vectorizer
+    vectorizer_filename = 'D:/Big Data Analytics of Airline Company/Final model with transformation/Comfort_seat_service/Comfart_seat_service_vectrorizer.pkl'
+    joblib.dump(traning_Seat_Comfort_vectrorizer, vectorizer_filename)
+
+    # Trained the model with the data, i.e., fit the data into the model
+    loadModel_SeatComfort.fit(X_combined_vectorized, y_combined)
+
+    # Save the new trained model
+    model_filename = 'D:/Big Data Analytics of Airline Company/Final model with transformation/Comfort_seat_service/trained_seat_comfort_services.sav'
+    pickle.dump(loadModel_SeatComfort, open(model_filename, 'wb'))
+
+    return
+
+
+def training_InFlight_model(loadModel_InFlight, new_csv_file):
+    # Read the CSV file into a DataFrame
+    new_data = pd.read_csv(StringIO(new_csv_file.read().decode('utf-8')))
+
+    # Load the old file through which I trained my existing model
+    original_data = pd.read_csv(
+        'D:/Big Data Analytics of Airline Company/Saved Csv File For All Model Training/In_flight_services.csv', encoding='ISO-8859-1')
+
+    # Extract original features and target variable
+    X_original = original_data['Review']
+    y_original = original_data['ServiceRating']
+
+    # Extract features and target variable from new data CSV file like those more aspects you have to add to the existing model.
+    X_new = new_data['Review']
+    y_new = new_data['ServiceRating']
+
+    # Preprocess the new data present in the CSV file
+    X_new = X_new.apply(preprocess_text)
+    X_new = X_new.apply(remove_punc)
+
+    # Combine both new and existing file data so that I add new aspects in the CSV file
+    X_combined = pd.concat([X_original, X_new], axis=0)
+    y_combined = pd.concat([y_original, y_new], axis=0)
+
+    X_combined.fillna('', inplace=True)
+
+    # This is the logic for saving the new combined file for future training purposes so we add new more aspects in continuity
+    combined_data = pd.concat([X_combined, y_combined], axis=1)
+    combined_data.columns = ['Review', 'ServiceRating']
+    combined_data.to_csv(
+        'D:/Big Data Analytics of Airline Company/Saved Csv File For All Model Training/In_flight_services.csv', index=False)
+
+    # Vectorize this new data through we trained the model
+    traning_InFlight_vectrorizer = TfidfVectorizer()
+    X_combined_vectorized = traning_InFlight_vectrorizer.fit_transform(
+        X_combined)
+
+    # Save the Vectorizer
+    vectorizer_filename = 'D:/Big Data Analytics of Airline Company/Final model with transformation/In_Flight_services/In_Flight_service_vectrorizer.pkl'
+    joblib.dump(traning_InFlight_vectrorizer, vectorizer_filename)
+
+    # Trained the model with the data, i.e., fit the data into the model
+    loadModel_InFlight.fit(X_combined_vectorized, y_combined)
+
+    # Save the new trained model
+    model_filename = 'D:/Big Data Analytics of Airline Company/Final model with transformation/In_Flight_services/trained_InFlight_services.sav'
+    pickle.dump(loadModel_InFlight, open(model_filename, 'wb'))
+
+    return
+
+
+def training_Recommendation_model(loadModel_RecommendedService, new_csv_file):
+    # Read the CSV file into a DataFrame
+    new_data = pd.read_csv(StringIO(new_csv_file.read().decode('utf-8')))
+
+    # Load the old file through which I trained my existing model
+    original_data = pd.read_csv(
+        'D:/Big Data Analytics of Airline Company/Saved Csv File For All Model Training/Recommend_flight_review.csv', encoding='ISO-8859-1')
+
+    # Extract original features and target variable
+    X_original = original_data['Review']
+    y_original = original_data['Recommended']
+
+    # Extract features and target variable from new data CSV file like those more aspects you have to add to the existing model.
+    X_new = new_data['Review']
+    y_new = new_data['Recommended']
+
+    # Preprocess the new data present in the CSV file
+    X_new = X_new.apply(preprocess_text)
+    X_new = X_new.apply(remove_punc)
+
+    # Combine both new and existing file data so that I add new aspects in the CSV file
+    X_combined = pd.concat([X_original, X_new], axis=0)
+    y_combined = pd.concat([y_original, y_new], axis=0)
+
+    X_combined.fillna('', inplace=True)
+
+    # This is the logic for saving the new combined file for future training purposes so we add new more aspects in continuity
+    combined_data = pd.concat([X_combined, y_combined], axis=1)
+    combined_data.columns = ['Review', 'Recommended']
+    combined_data.to_csv(
+        'D:/Big Data Analytics of Airline Company/Saved Csv File For All Model Training/Recommend_flight_review.csv', index=False)
+
+    # Vectorize this new data through we trained the model
+    traning_Recommend_vectrorizer = TfidfVectorizer()
+    X_combined_vectorized = traning_Recommend_vectrorizer.fit_transform(
+        X_combined)
+
+    # Save the Vectorizer
+    vectorizer_filename = 'D:/Big Data Analytics of Airline Company/Final model with transformation/Recommendation_flight/Recommendation_service_vectrorizer.pkl'
+    joblib.dump(traning_Recommend_vectrorizer, vectorizer_filename)
+
+    # Trained the model with the data, i.e., fit the data into the model
+    loadModel_RecommendedService.fit(X_combined_vectorized, y_combined)
+
+    # Save the new trained model
+    model_filename = 'D:/Big Data Analytics of Airline Company/Final model with transformation/Recommendation_flight/trained_Recommended_services.sav'
+    pickle.dump(loadModel_RecommendedService, open(model_filename, 'wb'))
+
+    return
+
+
 @app.route('/')
+def main():
+    return render_template("main.html")
+
+
+@app.route('/servicepage')
 def front():
     return render_template("front.html")
 
 
-@app.route('/service1', methods=['GET', 'POST'])
+@app.route('/service1')
+def service1():
+    return render_template('dataExtract.html')
+
+
+@app.route('/service1', methods=['POST'])
 def extract_data():
     if request.method == 'POST':
         data = request.json
         max_pages = data['maxPages']
+        start_date = data.get('startDate')  # Retrieve start date if provided
+        end_date = data.get('endDate')  # Retrieve end date if provided
 
-        # Base URL of the airline reviews page
         base_url = "https://www.airlinequality.com/airline-reviews/air-india/"
-        all_reviews = scrape_multiple_pages(base_url, max_pages)
+        all_reviews = scrape_multiple_pages(
+            base_url, max_pages, start_date, end_date)
 
-        # Write scraped data to a CSV file
         csv_file = "./Pipeline data/air_india_reviews.csv"
         with open(csv_file, "w", newline="", encoding="utf-8") as file:
             writer = csv.DictWriter(file, fieldnames=["Date", "Review"])
@@ -357,13 +715,43 @@ def extract_data():
 
         return render_template('index.html')
 
-    # For GET requests, simply render the template
     return render_template('dataExtract.html')
 
 
 @app.route('/service2')
 def index():
     return render_template('index.html')
+
+
+@app.route('/service3')
+def training_model():
+    return render_template('model_trained.html')
+
+
+@app.route('/training', methods=['POST', 'GET'])
+def training():
+    selected_option = request.form.get('option')
+    csv_file = request.files['csv_file']
+
+    if csv_file:
+        if selected_option == '1':
+            training_Entertainment_model(
+                loadModel_EnternamentService, csv_file)
+        elif selected_option == '2':
+            training_Food_Catering_model(loadModel_FoodCatering, csv_file)
+        elif selected_option == '3':
+            training_Ground_model(loadModel_GroundService, csv_file)
+        elif selected_option == '4':
+            training_InFlight_model(loadModel_InFlight, csv_file)
+        elif selected_option == '5':
+            training_Seat_Comfort_model(loadModel_SeatComfort, csv_file)
+        elif selected_option == '6':
+            training_Recommendation_model(
+                loadModel_RecommendedService, csv_file)
+    else:
+        return render_template('model_trained.html')
+
+    return render_template('model_trained.html')
 
 
 @app.route('/process', methods=['POST'])
@@ -384,16 +772,6 @@ def process():
 
     reviews = ''
     rvList = filtered_df['Review'].tolist()
-    # Iterate through each review and concatenate it to the reviews string
-    # for review in filtered_df['Review'].astype(str).tolist():
-    #     try:
-    #         # Join each review to the reviews string
-    #         reviews += review + '\n'
-    #     except Exception as e:
-    #         continue
-
-    # reviewss = filtered_df['Review'].items()
-    # reviews = '\n'.join(reviewss)
 
     if request.method == 'POST':
         # Perform predictions for all services
